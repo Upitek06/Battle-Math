@@ -1,11 +1,59 @@
 // ============================================================
-// MATH TUG OF WAR — Tahap 15: Tali Nyambung ke Tangan & Miring
+// MATH TUG OF WAR — Tahap 31: Bayangan Konsisten (Fix 2 Matahari)
 // ============================================================
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width;
 const H = canvas.height;
+
+// ---------- SETUP HTML INPUT ----------
+const inputContainer = document.createElement('div');
+inputContainer.style.position = 'absolute';
+inputContainer.style.width = '960px';
+inputContainer.style.height = '540px';
+inputContainer.style.pointerEvents = 'none';
+inputContainer.style.top = '50%';
+inputContainer.style.left = '50%';
+inputContainer.style.transform = 'translate(-50%, -50%)';
+document.body.appendChild(inputContainer);
+
+const baseInputStyle = `
+  position: absolute;
+  width: 140px;
+  height: 50px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  border-radius: 12px;
+  outline: none;
+  pointer-events: auto;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+  transition: all 0.2s;
+  display: none; 
+`;
+
+const pInput = document.createElement('input');
+pInput.type = 'text';
+pInput.placeholder = '?';
+pInput.maxLength = 5;
+pInput.style.cssText = baseInputStyle + `
+  left: 220px; top: 250px;
+  background: #ffffff; color: #2c3e50; border: 4px solid #ff6b35;
+`;
+inputContainer.appendChild(pInput);
+
+const aiInput = document.createElement('input');
+aiInput.type = 'text';
+aiInput.placeholder = '?';
+aiInput.maxLength = 5;
+aiInput.readOnly = true;
+aiInput.style.cssText = baseInputStyle + `
+  left: 600px; top: 250px;
+  background: #ffffff; color: #2c3e50; border: 4px solid #9575cd;
+`;
+inputContainer.appendChild(aiInput);
 
 // ---------- AUDIO ----------
 let audioCtx = null;
@@ -35,9 +83,9 @@ const SFX = {
 
 // ---------- DIFFICULTY ----------
 const DIFFICULTIES = {
-    easy: { aiMinTime: 4.5, aiMaxTime: 6.5, aiAccuracy: 0.45, roundTimeout: 8.0, label: 'Mudah' },
-    normal: { aiMinTime: 2.5, aiMaxTime: 4.5, aiAccuracy: 0.65, roundTimeout: 6.0, label: 'Normal' },
-    hard: { aiMinTime: 1.5, aiMaxTime: 3.0, aiAccuracy: 0.85, roundTimeout: 4.5, label: 'Sulit' },
+    easy: { aiMinTime: 5.5, aiMaxTime: 7.5, aiAccuracy: 0.55, roundTimeout: 12.0, label: 'Mudah' },
+    normal: { aiMinTime: 4.5, aiMaxTime: 6.5, aiAccuracy: 0.70, roundTimeout: 10.0, label: 'Normal' },
+    hard: { aiMinTime: 3.5, aiMaxTime: 5.5, aiAccuracy: 0.85, roundTimeout: 8.0, label: 'Sulit' },
 };
 
 const CONFIG = {
@@ -47,7 +95,7 @@ const CONFIG = {
     groundY: 400,
     pullAmount: 25,
     playerWrongPenalty: 15,
-    roundDelay: 0.9,
+    roundDelay: 1.5,
 };
 
 // ---------- STATE ----------
@@ -57,6 +105,7 @@ const state = {
     phase: 'menu',
     winner: null,
     difficulty: 'normal',
+    gameMode: null,
     question: null,
     aiTimer: 0, aiInitialTimer: 0, aiAnswered: false,
     aiChosenIndex: null,
@@ -64,6 +113,109 @@ const state = {
     feedback: null,
     hoverMenu: null,
 };
+
+// ============================================================
+// GENERATOR AWAN GAYA ANIME/CARTOON
+// ============================================================
+const cloudSprites = [];
+
+function generateCloudSprite() {
+    const cw = 500, ch = 250;
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = cw; offCanvas.height = ch;
+    const offCtx = offCanvas.getContext('2d');
+
+    const puffs = [];
+    for (let i = 0; i < 9; i++) {
+        puffs.push({ x: cw / 2 + (i - 4) * 30 + (Math.random() * 20 - 10), y: ch - 60, r: 30 + Math.random() * 20 });
+    }
+    for (let i = 0; i < 18; i++) {
+        puffs.push({ x: cw / 2 + (Math.random() - 0.5) * 240, y: ch - 80 - Math.random() * 80, r: 25 + Math.random() * 45 });
+    }
+    if (Math.random() > 0.5) puffs.push({ x: cw / 2 - 180, y: ch - 60, r: 15 + Math.random() * 10 });
+    if (Math.random() > 0.5) puffs.push({ x: cw / 2 + 190, y: ch - 70, r: 20 + Math.random() * 15 });
+
+    offCtx.fillStyle = '#ffcba4';
+    puffs.forEach(p => { offCtx.beginPath(); offCtx.arc(p.x + 5, p.y + 8, p.r, 0, Math.PI * 2); offCtx.fill(); });
+
+    offCtx.fillStyle = '#fff3e8';
+    puffs.forEach(p => { offCtx.beginPath(); offCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2); offCtx.fill(); });
+
+    offCtx.fillStyle = '#ffffff';
+    puffs.forEach(p => { offCtx.beginPath(); offCtx.arc(p.x - 5, p.y - 8, p.r * 0.75, 0, Math.PI * 2); offCtx.fill(); });
+
+    return offCanvas;
+}
+
+for (let i = 0; i < 5; i++) {
+    cloudSprites.push(generateCloudSprite());
+}
+
+// ---------- ATMOSFER GLOBAL ----------
+const menuEffects = {
+    clouds: [
+        { x: 100, y: 60, speed: 8, scale: 1.0, sprite: cloudSprites[0] },
+        { x: 500, y: 140, speed: 12, scale: 0.6, sprite: cloudSprites[1] },
+        { x: 800, y: 80, speed: 10, scale: 0.8, sprite: cloudSprites[2] },
+        { x: -200, y: 190, speed: 6, scale: 1.2, sprite: cloudSprites[3] }
+    ],
+    birds: [],
+    sparkles: []
+};
+
+for (let i = 0; i < 15; i++) {
+    menuEffects.sparkles.push({ x: Math.random() * W, y: Math.random() * (CONFIG.groundY - 100), size: Math.random() * 3 + 2, phase: Math.random() * Math.PI * 2 });
+}
+
+function updateAtmosphere(dt) {
+    menuEffects.clouds.forEach(c => {
+        c.x += c.speed * dt;
+        if (c.x > W + 500 * c.scale) c.x = -500 * c.scale;
+    });
+
+    if (Math.random() < 0.005) {
+        menuEffects.birds.push({ x: -50, y: 50 + Math.random() * 150, speed: 80 + Math.random() * 50, wingPhase: Math.random() * Math.PI * 2 });
+    }
+    for (let i = menuEffects.birds.length - 1; i >= 0; i--) {
+        const b = menuEffects.birds[i];
+        b.x += b.speed * dt;
+        b.wingPhase += dt * 15;
+        if (b.x > W + 50) menuEffects.birds.splice(i, 1);
+    }
+
+    menuEffects.sparkles.forEach(s => { s.phase += dt * 2; });
+}
+
+function drawSkyEffects() {
+    for (const c of menuEffects.clouds) {
+        ctx.drawImage(c.sprite, c.x, c.y, c.sprite.width * c.scale, c.sprite.height * c.scale);
+    }
+
+    for (const s of menuEffects.sparkles) {
+        const alpha = (Math.sin(s.phase) + 1) / 2 * 0.8 + 0.2;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = '#fff9c4';
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - s.size * 3);
+        ctx.quadraticCurveTo(s.x, s.y, s.x + s.size * 3, s.y);
+        ctx.quadraticCurveTo(s.x, s.y, s.x, s.y + s.size * 3);
+        ctx.quadraticCurveTo(s.x, s.y, s.x - s.size * 3, s.y);
+        ctx.quadraticCurveTo(s.x, s.y, s.x, s.y - s.size * 3);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    ctx.strokeStyle = '#4a6572'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (const b of menuEffects.birds) {
+        const flap = Math.sin(b.wingPhase) * 8;
+        ctx.beginPath();
+        ctx.moveTo(b.x - 10, b.y + flap);
+        ctx.quadraticCurveTo(b.x - 5, b.y, b.x, b.y);
+        ctx.quadraticCurveTo(b.x + 5, b.y, b.x + 10, b.y + flap);
+        ctx.stroke();
+    }
+}
 
 // ---------- CHARACTER STATE (ANIMASI) ----------
 const pAnim = { state: 'idle', timer: 0, blinkTimer: 2, blinkDuration: 0 };
@@ -90,21 +242,53 @@ function updateAnim(char, dt) {
     }
 }
 
+// ---------- PARTICLE SYSTEM ----------
+const particles = [];
+function spawnParticles(x, y, type, count) {
+    for (let i = 0; i < count; i++) {
+        particles.push({
+            x: x + (Math.random() - 0.5) * 40, y: y + (Math.random() - 0.5) * 20,
+            vx: (Math.random() - 0.5) * 80, vy: (Math.random() - 0.5) * 80 - 30,
+            life: 1.0, maxLife: 1.0, type: type, size: Math.random() * 4 + 2,
+            color: type === 'dust' ? '#c8e6c9' : type === 'sweat' ? '#82ccdd' : type === 'steam' ? '#ff8a80' : '#ffd54f'
+        });
+    }
+}
+
+function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        if (p.type === 'dust' || p.type === 'steam') p.vy -= 20 * dt;
+        else p.vy += 100 * dt;
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+}
+
 // ---------- MENU RECTS ----------
 function getMenuRects() {
-    const bw = 200, bh = 60, gap = 20;
-    const totalW = bw * 3 + gap * 2;
-    const startX = (W - totalW) / 2;
-    const y = 300;
+    const bw = 200, bh = 60, gap = 20, totalW = bw * 3 + gap * 2, startX = (W - totalW) / 2, y = 330;
     return [
         { x: startX, y, w: bw, h: bh, key: 'easy' },
         { x: startX + bw + gap, y, w: bw, h: bh, key: 'normal' },
         { x: startX + (bw + gap) * 2, y, w: bw, h: bh, key: 'hard' },
     ];
 }
-function getStartRect() {
-    const sbw = 260, sbh = 70;
-    return { x: (W - sbw) / 2, y: 480, w: sbw, h: sbh, key: 'start' };
+function getStartRect() { return { x: (W - 260) / 2, y: 440, w: 260, h: 70, key: 'start' }; }
+function getModeRects() {
+    const bw = 300, bh = 100, gap = 40, totalW = bw * 2 + gap, startX = (W - totalW) / 2, y = 260;
+    return [
+        { x: startX, y, w: bw, h: bh, key: 'mcq' },
+        { x: startX + bw + gap, y, w: bw, h: bh, key: 'input' },
+    ];
+}
+function getOptionRects() {
+    const bw = 220, bh = 55, gap = 15, totalW = bw * 2 + gap, sx = (W - totalW) / 2, sy = 110;
+    return [
+        { x: sx, y: sy, w: bw, h: bh }, { x: sx + bw + gap, y: sy, w: bw, h: bh },
+        { x: sx, y: sy + bh + gap, w: bw, h: bh }, { x: sx + bw + gap, y: sy + bh + gap, w: bw, h: bh },
+    ];
 }
 
 // ---------- GAME LOOP ----------
@@ -119,8 +303,23 @@ function loop(now) {
 
 function update(dt) {
     state.time += dt;
+    updateAtmosphere(dt);
     updateAnim(pAnim, dt);
     updateAnim(aiAnim, dt);
+    updateParticles(dt);
+
+    if (pAnim.state === 'pull' && Math.random() < 0.3) {
+        spawnParticles(CONFIG.basePlayerX + state.tugX, CONFIG.groundY + 10, 'dust', 1);
+        spawnParticles(CONFIG.basePlayerX + state.tugX - 20, CONFIG.groundY - 50, 'sweat', 1);
+    }
+    if (aiAnim.state === 'pull' && Math.random() < 0.3) {
+        spawnParticles(CONFIG.baseAiX + state.tugX, CONFIG.groundY + 10, 'dust', 1);
+        spawnParticles(CONFIG.baseAiX + state.tugX + 20, CONFIG.groundY - 50, 'sweat', 1);
+    }
+    if (pAnim.state === 'angry' && Math.random() < 0.2) spawnParticles(CONFIG.basePlayerX + state.tugX, CONFIG.groundY - 60, 'steam', 1);
+    if (aiAnim.state === 'angry' && Math.random() < 0.2) spawnParticles(CONFIG.baseAiX + state.tugX, CONFIG.groundY - 60, 'steam', 1);
+    if (pAnim.state === 'happy' && Math.random() < 0.2) spawnParticles(CONFIG.basePlayerX + state.tugX, CONFIG.groundY - 40, 'sparkle', 1);
+    if (aiAnim.state === 'happy' && Math.random() < 0.2) spawnParticles(CONFIG.baseAiX + state.tugX, CONFIG.groundY - 40, 'sparkle', 1);
 
     if (state.feedback) {
         state.feedback.timer -= dt;
@@ -141,29 +340,42 @@ function update(dt) {
             state.aiTimer -= dt;
             if (state.aiTimer <= 0) {
                 state.aiAnswered = true;
-
                 const isCorrect = Math.random() < diff.aiAccuracy;
-                let chosenIndex;
 
-                if (isCorrect) {
-                    chosenIndex = state.question.options.indexOf(state.question.correct);
+                if (state.gameMode === 'mcq') {
+                    let chosenIndex;
+                    if (isCorrect) chosenIndex = state.question.options.indexOf(state.question.correct);
+                    else {
+                        const wrongIndices = state.question.options.map((opt, i) => opt !== state.question.correct ? i : -1).filter(i => i !== -1);
+                        chosenIndex = wrongIndices[Math.floor(Math.random() * wrongIndices.length)];
+                    }
+                    state.aiChosenIndex = chosenIndex;
+                    if (isCorrect) {
+                        state.tugX += CONFIG.pullAmount;
+                        triggerAnim(aiAnim, 'pull', 0.5);
+                        triggerAnim(pAnim, 'pulled', 0.5);
+                        endRound('AI BENAR!', '#e74c3c');
+                    } else {
+                        triggerAnim(aiAnim, 'angry', 1);
+                        state.feedback = { text: 'AI SALAH!', color: '#f39c12', timer: 1.5 };
+                    }
                 } else {
-                    const wrongIndices = state.question.options
-                        .map((opt, i) => opt !== state.question.correct ? i : -1)
-                        .filter(i => i !== -1);
-                    chosenIndex = wrongIndices[Math.floor(Math.random() * wrongIndices.length)];
-                }
-
-                state.aiChosenIndex = chosenIndex;
-
-                if (isCorrect) {
-                    state.tugX += CONFIG.pullAmount;
-                    triggerAnim(aiAnim, 'pull', 0.4);
-                    triggerAnim(pAnim, 'pulled', 0.4);
-                    endRound('AI BENAR!', '#e74c3c');
-                } else {
-                    triggerAnim(aiAnim, 'angry', 0.8);
-                    state.feedback = { text: 'AI SALAH!', color: '#f39c12', timer: 1.5 };
+                    let aiAnswer;
+                    if (isCorrect) aiAnswer = state.question.correct;
+                    else {
+                        const offset = (Math.floor(Math.random() * 5) + 1) * (Math.random() < 0.5 ? 1 : -1);
+                        aiAnswer = Math.max(0, state.question.correct + offset);
+                    }
+                    aiInput.value = aiAnswer;
+                    if (isCorrect) {
+                        state.tugX += CONFIG.pullAmount;
+                        triggerAnim(aiAnim, 'pull', 0.5);
+                        triggerAnim(pAnim, 'pulled', 0.5);
+                        endRound('AI BENAR!', '#e74c3c');
+                    } else {
+                        triggerAnim(aiAnim, 'angry', 1);
+                        state.feedback = { text: 'AI SALAH!', color: '#f39c12', timer: 1.5 };
+                    }
                 }
             }
         }
@@ -175,241 +387,270 @@ function update(dt) {
 
 function endRound(text, color) {
     state.feedback = { text, color, timer: 1 };
+    pInput.style.opacity = '0.5'; pInput.blur();
 
     const pX = CONFIG.basePlayerX + state.tugX;
     const aX = CONFIG.baseAiX + state.tugX;
 
     if (pX >= W / 2) {
-        state.phase = 'gameover'; state.winner = 'ai'; SFX.lose(); triggerAnim(aiAnim, 'happy', 99); return;
+        state.phase = 'gameover'; state.winner = 'ai'; SFX.lose(); triggerAnim(aiAnim, 'happy', 99); triggerAnim(pAnim, 'pulled', 99); return;
     }
     if (aX <= W / 2) {
-        state.phase = 'gameover'; state.winner = 'player'; SFX.win(); triggerAnim(pAnim, 'happy', 99); return;
+        state.phase = 'gameover'; state.winner = 'player'; SFX.win(); triggerAnim(pAnim, 'happy', 99); triggerAnim(aiAnim, 'pulled', 99); return;
     }
-
     state.phase = 'waiting';
     state.roundDelay = CONFIG.roundDelay;
 }
 
-// ---------- SOAL ----------
+// ============================================================
+// GENERATOR SOAL
+// ============================================================
 function generateQuestion() {
-    const a = Math.floor(Math.random() * 9) + 2;
-    const b = Math.floor(Math.random() * 9) + 2;
     let text, correct;
-    if (Math.random() < 0.5) { text = `${a} + ${b}`; correct = a + b; }
-    else { const big = Math.max(a, b), small = Math.min(a, b); text = `${big} − ${small}`; correct = big - small; }
+    let options = [];
 
-    const options = new Set([correct]);
-    while (options.size < 4) {
-        const wrong = correct + Math.floor(Math.random() * 7) - 3;
-        if (wrong !== correct && wrong >= 0 && wrong <= 20) options.add(wrong);
+    if (state.gameMode === 'mcq') {
+        const a = Math.floor(Math.random() * 20) + 5, b = Math.floor(Math.random() * 20) + 5;
+        if (Math.random() < 0.5) { text = `${a} + ${b}`; correct = a + b; }
+        else { const big = Math.max(a, b), small = Math.min(a, b); text = `${big} − ${small}`; correct = big - small; }
+
+        const optSet = new Set([correct]);
+        while (optSet.size < 4) {
+            const offset = Math.floor(Math.random() * 10) - 5;
+            const wrong = correct + offset;
+            if (wrong !== correct && wrong >= 0) optSet.add(wrong);
+        }
+        options = Array.from(optSet);
+        for (let i = options.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [options[i], options[j]] = [options[j], options[i]];
+        }
+    } else {
+        const r = Math.random();
+        if (state.difficulty === 'easy') {
+            const type = Math.floor(Math.random() * 3);
+            if (type === 0) { const a = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 5) + 2, c = Math.floor(Math.random() * 5) + 2; text = `${a} + ${b} × ${c}`; correct = a + (b * c); }
+            else if (type === 1) { const a = Math.floor(Math.random() * 5) + 2, b = Math.floor(Math.random() * 5) + 2, c = Math.floor(Math.random() * 10) + 2; text = `${a} × ${b} + ${c}`; correct = (a * b) + c; }
+            else { const b = Math.floor(Math.random() * 5) + 2, divRes = Math.floor(Math.random() * 5) + 2, a = b * divRes, c = Math.floor(Math.random() * 10) + 2; text = `${a} ÷ ${b} + ${c}`; correct = divRes + c; }
+        } else if (state.difficulty === 'normal') {
+            const type = Math.floor(Math.random() * 4);
+            if (type === 0) { const a = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 10) + 2, c = Math.floor(Math.random() * 5) + 2; text = `(${a} + ${b}) × ${c}`; correct = (a + b) * c; }
+            else if (type === 1) { const a = Math.floor(Math.random() * 10) + 5, b = Math.floor(Math.random() * 10) + 2, c = Math.floor(Math.random() * 5) + 2, d = Math.floor(Math.random() * 5) + 2; text = `${a} + ${b} × ${c} − ${d}`; correct = a + (b * c) - d; }
+            else if (type === 2) { const b = Math.floor(Math.random() * 5) + 2, divRes = Math.floor(Math.random() * 5) + 2, a = b * divRes, c = Math.floor(Math.random() * 10) + 2, d = Math.floor(Math.random() * 5) + 2; text = `${a} ÷ ${b} + ${c} × ${d}`; correct = divRes + (c * d); }
+            else { const a = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 5) + 2, c = Math.floor(Math.random() * 5) + 2; text = `${a} × (${b} + ${c})`; correct = a * (b + c); }
+        } else {
+            const type = Math.floor(Math.random() * 4);
+            if (type === 0) { const a = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 10) + 2, c = Math.floor(Math.random() * 5) + 2, d = Math.floor(Math.random() * 10) + 2; text = `${a} × ${b} + ${c} × ${d}`; correct = (a * b) + (c * d); }
+            else if (type === 1) { const a = Math.floor(Math.random() * 10) + 2, b = Math.floor(Math.random() * 10) + 2, c = Math.floor(Math.random() * 5) + 2, d = Math.floor(Math.random() * 5) + 2; text = `(${a} + ${b}) × ${c} − ${d}`; correct = (a + b) * c - d; }
+            else if (type === 2) { const c = Math.floor(Math.random() * 5) + 2, d = Math.floor(Math.random() * 5) + 2, mulRes = Math.floor(Math.random() * 5) + 2, a = c * d * mulRes, b = Math.floor(Math.random() * 10) + 2; text = `${a} ÷ ${c} × ${d} + ${b}`; correct = (a / c) * d + b; }
+            else { const a = Math.floor(Math.random() * 10) + 5, b = Math.floor(Math.random() * 10) + 5, c = Math.floor(Math.random() * 5) + 2, d = Math.floor(Math.random() * 5) + 2; let ans = (a * b) - (c * d); if (ans >= 0) { text = `${a} × ${b} − ${c} × ${d}`; correct = ans; } else { text = `${a} × ${b} + ${c} × ${d}`; correct = (a * b) + (c * d); } }
+        }
     }
-    const arr = Array.from(options);
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return { text: text + ' = ?', correct, options: arr };
+    return { type: state.gameMode, text: text + ' = ?', correct, options };
 }
 
 function nextQuestion() {
     const diff = DIFFICULTIES[state.difficulty];
     state.question = generateQuestion();
     const aiTime = diff.aiMinTime + Math.random() * (diff.aiMaxTime - diff.aiMinTime);
-    state.aiTimer = aiTime;
-    state.aiInitialTimer = aiTime;
-    state.aiAnswered = false;
-    state.aiChosenIndex = null;
-    state.roundTimer = diff.roundTimeout;
-    state.roundInitialTimer = diff.roundTimeout;
+    state.aiTimer = aiTime; state.aiInitialTimer = aiTime;
+    state.aiAnswered = false; state.aiChosenIndex = null;
+    state.roundTimer = diff.roundTimeout; state.roundInitialTimer = diff.roundTimeout;
     state.phase = 'playing';
+
+    pInput.value = ''; aiInput.value = '';
+
+    if (state.gameMode === 'input') {
+        pInput.style.display = 'block'; aiInput.style.display = 'block';
+        pInput.style.opacity = '1'; pInput.focus(); canvas.blur();
+    } else {
+        pInput.style.display = 'none'; aiInput.style.display = 'none'; pInput.blur();
+    }
 }
 
-function playerAnswer(index) {
-    if (state.phase !== 'playing' || !state.question) return;
-    const isCorrect = state.question.options[index] === state.question.correct;
+// ============================================================
+// LOGIKA SUBMIT JAWABAN PLAYER
+// ============================================================
+pInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        if (state.phase !== 'playing' || state.gameMode !== 'input') return;
+        const val = parseInt(pInput.value);
+        if (isNaN(val)) return;
+        pInput.blur();
+        evaluatePlayerAnswer(val);
+    }
+});
 
+function evaluatePlayerAnswer(val) {
+    const isCorrect = (val === state.question.correct);
     if (isCorrect) {
         state.tugX -= CONFIG.pullAmount;
-        triggerAnim(pAnim, 'pull', 0.4);
-        triggerAnim(aiAnim, 'pulled', 0.4);
+        triggerAnim(pAnim, 'pull', 0.5);
+        triggerAnim(aiAnim, 'pulled', 0.5);
         SFX.correct();
         endRound('BENAR!', '#27ae60');
     } else {
         state.tugX += CONFIG.playerWrongPenalty;
-        triggerAnim(pAnim, 'angry', 0.8);
+        triggerAnim(aiAnim, 'pull', 0.5);
+        triggerAnim(pAnim, 'pulled', 0.5);
         SFX.wrong();
         endRound('SALAH!', '#e74c3c');
     }
 }
 
-// ---------- GET HAND POSITION (KUNCI UNTUK TALI) ----------
+// ---------- GET HAND POSITION ----------
 function getHandPos(baseX, baseY, isPlayer, anim) {
-    let localX = isPlayer ? 72 : -87; // Titik tengah telapak tangan
+    let localX = isPlayer ? 72 : -87;
     let localY = -30;
     let offsetX = 0, bodyAngle = 0;
 
-    if (anim.state === 'pull') {
-        offsetX = isPlayer ? -15 : 15;
-        bodyAngle = isPlayer ? -0.15 : 0.15;
-    } else if (anim.state === 'pulled') {
-        offsetX = isPlayer ? 15 : -15;
-        bodyAngle = isPlayer ? 0.15 : -0.15;
-    } else if (anim.state === 'angry') {
-        offsetX = Math.sin(state.time * 50) * 6;
-        bodyAngle = Math.sin(state.time * 50) * 0.08;
-    }
+    if (anim.state === 'pull') { offsetX = isPlayer ? -15 : 15; bodyAngle = isPlayer ? -0.15 : 0.15; }
+    else if (anim.state === 'pulled') { offsetX = isPlayer ? 15 : -15; bodyAngle = isPlayer ? 0.15 : -0.15; }
+    else if (anim.state === 'angry') { offsetX = Math.sin(state.time * 50) * 6; bodyAngle = Math.sin(state.time * 50) * 0.08; }
 
-    // Hitung rotasi tangan berdasarkan condongan badan
     let rotX = (localX * Math.cos(bodyAngle) - localY * Math.sin(bodyAngle)) * CONFIG.charScale;
     let rotY = (localX * Math.sin(bodyAngle) + localY * Math.cos(bodyAngle)) * CONFIG.charScale;
 
-    return {
-        x: baseX + offsetX + rotX,
-        y: baseY + rotY
-    };
+    return { x: baseX + offsetX + rotX, y: baseY + rotY };
+}
+
+// ============================================================
+// DRAW BAYANGAN KARAKTER (SINKRON & FISIKA MATEMATIS)
+// ============================================================
+function drawCharacterShadow(x, isPlayer) {
+    ctx.save();
+
+    // 1. Titik Origin di tanah tepat di bawah karakter
+    ctx.translate(x, CONFIG.groundY);
+
+    // 2. Transformasi Matriks:
+    // x' = x + 1.2 * y
+    // y' = -0.4 * y
+    // Angka c=1.2 membuat bayangan miring ke kiri seiring naiknya objek.
+    // Angka d=-0.4 (negatif) membuat objek yang naik (y negatif) diproyeksikan ke bawah (y positif).
+    ctx.transform(1, 0, 1.2, -0.4, 0, 0);
+
+    // 3. Skala sesuai karakter
+    ctx.scale(CONFIG.charScale, CONFIG.charScale);
+
+    // 4. Warna Bayangan
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+
+    // 5. Gambar bagian karakter (Koordinat y negatif = naik ke atas)
+
+    // Kaki (4 buah, bergerigi)
+    ctx.beginPath();
+    ctx.roundRect(-45, -25, 20, 25, 5);
+    ctx.roundRect(-15, -25, 20, 25, 5);
+    ctx.roundRect(15, -25, 20, 25, 5);
+    ctx.roundRect(45, -25, 20, 25, 5);
+    ctx.fill();
+
+    // Badan
+    ctx.beginPath();
+    ctx.roundRect(-65, -90, 130, 65, 15);
+    ctx.fill();
+
+    // Headphone
+    ctx.beginPath();
+    ctx.roundRect(-50, -120, 100, 18, 8);
+    ctx.fill();
+
+    ctx.restore();
 }
 
 // ---------- DRAW KARAKTER ----------
 function drawCharacter(x, y, isPlayer, anim) {
-    ctx.save();
-    ctx.translate(x, y);
+    ctx.save(); ctx.translate(x, y);
 
-    let offsetX = 0, scaleX = 1, scaleY = 1, headTilt = 0;
+    let offsetX = 0, offsetY = 0, scaleX = 1, scaleY = 1, headTilt = 0;
     let bodyAngle = 0;
 
-    if (anim.state === 'idle' || anim.state === 'happy') {
-        scaleY = 1 + Math.sin(state.time * 4) * 0.03;
-        scaleX = 1 - Math.sin(state.time * 4) * 0.02;
-        if (anim.state === 'happy') bodyAngle = Math.sin(state.time * 10) * 0.05;
-    }
+    if (anim.state === 'idle') { offsetY = Math.sin(state.time * 4) * 3; scaleY = 1 + Math.sin(state.time * 4) * 0.02; scaleX = 1 - Math.sin(state.time * 4) * 0.02; bodyAngle = Math.sin(state.time * 2) * 0.02; }
+    else if (anim.state === 'pull') { offsetX = isPlayer ? -20 : 20; offsetY = Math.sin(state.time * 30) * 2; bodyAngle = isPlayer ? -0.2 : 0.2; scaleX = 1.15; scaleY = 0.85; }
+    else if (anim.state === 'pulled') { offsetX = isPlayer ? 25 : -25; bodyAngle = isPlayer ? 0.25 : -0.25; scaleX = 0.85; scaleY = 1.2; }
+    else if (anim.state === 'angry') { offsetX = Math.sin(state.time * 60) * 8; bodyAngle = Math.sin(state.time * 60) * 0.1; }
+    else if (anim.state === 'happy') { offsetY = -Math.abs(Math.sin(state.time * 10)) * 20; bodyAngle = Math.sin(state.time * 10) * 0.1; }
 
-    if (anim.state === 'pull') {
-        offsetX = isPlayer ? -15 : 15;
-        bodyAngle = isPlayer ? -0.15 : 0.15;
-        scaleX = 1.05; scaleY = 0.95;
-    } else if (anim.state === 'pulled') {
-        offsetX = isPlayer ? 15 : -15;
-        bodyAngle = isPlayer ? 0.15 : -0.15;
-        scaleX = 0.95; scaleY = 1.05;
-    } else if (anim.state === 'angry') {
-        offsetX = Math.sin(state.time * 50) * 6;
-        bodyAngle = Math.sin(state.time * 50) * 0.08;
-    }
+    ctx.translate(offsetX, offsetY); ctx.rotate(bodyAngle); ctx.scale(CONFIG.charScale * scaleX, CONFIG.charScale * scaleY);
 
-    ctx.translate(offsetX, 0);
-    ctx.rotate(bodyAngle);
+    const bodyGrad = ctx.createLinearGradient(-65, -45, 65, 30);
+    bodyGrad.addColorStop(0, isPlayer ? '#ff9a76' : '#b39ddb');
+    bodyGrad.addColorStop(1, isPlayer ? '#e65100' : '#673ab7');
 
-    ctx.scale(CONFIG.charScale * scaleX, CONFIG.charScale * scaleY);
+    const legColor = isPlayer ? '#bf360c' : '#4527a0';
+    const handColor = isPlayer ? '#d84315' : '#512da8';
 
-    const mainColor = isPlayer ? '#ff6b35' : '#9575cd';
-    const legColor = isPlayer ? '#d35400' : '#7b5bb5';
-
-    // Kaki
     ctx.fillStyle = legColor;
-    ctx.fillRect(-45, 25, 20, 25);
-    ctx.fillRect(-15, 25, 20, 25);
-    ctx.fillRect(15, 25, 20, 25);
-    ctx.fillRect(45, 25, 20, 25);
+    ctx.beginPath(); ctx.roundRect(-45, 25, 20, 25, 5); ctx.roundRect(-15, 25, 20, 25, 5); ctx.roundRect(15, 25, 20, 25, 5); ctx.roundRect(45, 25, 20, 25, 5); ctx.fill();
 
-    // Badan
-    ctx.fillStyle = mainColor;
-    ctx.fillRect(-65, -35, 130, 65);
-    ctx.fillRect(-55, -45, 110, 10);
-    ctx.fillStyle = 'rgba(0,0,0,0.1)';
-    ctx.fillRect(-65, 15, 130, 15);
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath(); ctx.roundRect(-65, -35, 130, 65, 15); ctx.roundRect(-55, -45, 110, 10, 5); ctx.fill();
 
-    // Headphone & Mata
-    ctx.save();
-    ctx.translate(0, -40);
-    ctx.rotate(headTilt);
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.roundRect(-55, -30, 110, 15, 10); ctx.fill();
 
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(-50, -30, 100, 18);
-    ctx.fillStyle = '#3a5a98';
-    ctx.fillRect(-45, -28, 90, 8);
+    ctx.save(); ctx.translate(0, -40); ctx.rotate(headTilt);
 
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(-75, -15, 25, 55);
-    ctx.fillStyle = '#3a5a98';
-    ctx.fillRect(-70, -10, 15, 45);
-    ctx.fillStyle = '#82ccdd';
-    ctx.fillRect(-70, 0, 8, 20);
+    ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.roundRect(-50, -30, 100, 18, 8); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.roundRect(-45, -28, 90, 4, 2); ctx.fill();
 
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(50, -15, 25, 55);
-    ctx.fillStyle = '#3a5a98';
-    ctx.fillRect(55, -10, 15, 45);
-    ctx.fillStyle = '#82ccdd';
-    ctx.fillRect(62, 0, 8, 20);
+    ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.roundRect(-75, -15, 25, 55, 8); ctx.fill();
+    ctx.fillStyle = isPlayer ? '#3a5a98' : '#2c3e50'; ctx.beginPath(); ctx.roundRect(-70, -10, 15, 45, 5); ctx.fill();
+    ctx.fillStyle = '#82ccdd'; ctx.beginPath(); ctx.roundRect(-70, 0, 8, 20, 4); ctx.fill();
 
-    ctx.fillStyle = '#1a1a2e';
-    ctx.strokeStyle = '#1a1a2e';
-    ctx.lineWidth = 7;
-    ctx.lineCap = 'square';
-    ctx.lineJoin = 'miter';
+    ctx.fillStyle = '#1a1a2e'; ctx.beginPath(); ctx.roundRect(50, -15, 25, 55, 8); ctx.fill();
+    ctx.fillStyle = isPlayer ? '#3a5a98' : '#2c3e50'; ctx.beginPath(); ctx.roundRect(55, -10, 15, 45, 5); ctx.fill();
+    ctx.fillStyle = '#82ccdd'; ctx.beginPath(); ctx.roundRect(62, 0, 8, 20, 4); ctx.fill();
+
+    ctx.fillStyle = '#1a1a2e'; ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
     const isEyesOpen = anim.blinkDuration > 0;
-
     if (anim.state === 'pull' || anim.state === 'pulled') {
-        ctx.beginPath();
-        ctx.moveTo(-25, -10); ctx.lineTo(-10, 0); ctx.lineTo(-25, 10);
-        ctx.moveTo(25, -10); ctx.lineTo(10, 0); ctx.lineTo(25, 10);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-25, -10); ctx.lineTo(-10, 0); ctx.lineTo(-25, 10); ctx.moveTo(25, -10); ctx.lineTo(10, 0); ctx.lineTo(25, 10); ctx.stroke();
     } else if (anim.state === 'angry') {
-        ctx.beginPath();
-        ctx.moveTo(-28, -10); ctx.lineTo(-10, 5);
-        ctx.moveTo(28, -10); ctx.lineTo(10, 5);
-        ctx.stroke();
-        ctx.fillRect(-22, 5, 12, 8);
-        ctx.fillRect(10, 5, 12, 8);
+        ctx.beginPath(); ctx.moveTo(-28, -10); ctx.lineTo(-10, 5); ctx.moveTo(28, -10); ctx.lineTo(10, 5); ctx.stroke();
+        ctx.beginPath(); ctx.roundRect(-22, 5, 12, 8, 3); ctx.roundRect(10, 5, 12, 8, 3); ctx.fill();
     } else if (anim.state === 'happy') {
-        ctx.beginPath();
-        ctx.moveTo(-28, 8); ctx.lineTo(-18, -8); ctx.lineTo(-8, 8);
-        ctx.moveTo(8, 8); ctx.lineTo(18, -8); ctx.lineTo(28, 8);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-28, 8); ctx.lineTo(-18, -8); ctx.lineTo(-8, 8); ctx.moveTo(8, 8); ctx.lineTo(18, -8); ctx.lineTo(28, 8); ctx.stroke();
     } else if (isEyesOpen) {
-        ctx.fillRect(-25, -8, 15, 16);
-        ctx.fillRect(10, -8, 15, 16);
+        ctx.beginPath(); ctx.roundRect(-25, -8, 15, 16, 4); ctx.roundRect(10, -8, 15, 16, 4); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(-20, -4, 3, 0, Math.PI * 2); ctx.arc(15, -4, 3, 0, Math.PI * 2); ctx.fill();
     } else {
-        ctx.fillRect(-25, -3, 15, 8);
-        ctx.fillRect(10, -3, 15, 8);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(-22, -1, 4, 4);
-        ctx.fillRect(13, -1, 4, 4);
+        ctx.beginPath(); ctx.roundRect(-25, -3, 15, 8, 3); ctx.roundRect(10, -3, 15, 8, 3); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.arc(-22, 1, 2, 0, Math.PI * 2); ctx.arc(13, 1, 2, 0, Math.PI * 2); ctx.fill();
     }
 
-    if (anim.state === 'angry') {
-        ctx.fillStyle = '#e74c3c';
-        ctx.font = 'bold 35px Fredoka';
-        ctx.textAlign = 'center';
-        ctx.fillText('💢', 0, -55);
-    }
-
+    if (anim.state === 'angry') { ctx.fillStyle = '#e74c3c'; ctx.font = 'bold 35px Fredoka'; ctx.textAlign = 'center'; ctx.fillText('💢', 0, -55); }
     if (!isPlayer && state.phase === 'playing' && !state.aiAnswered && state.question) {
-        ctx.fillStyle = '#2c3e50';
-        ctx.font = 'bold 24px Fredoka, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('...', 0, -55);
+        ctx.fillStyle = '#1a1a2e'; ctx.font = 'bold 24px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('...', 0, -55);
     }
 
     ctx.restore();
 
-    // --- DUA TANGAN MEGANG TALI ---
-    ctx.fillStyle = legColor; // Warna lebih gelap agar kontras
-    if (isPlayer) {
-        ctx.fillRect(60, -40, 25, 20); // Tangan Atas
-        ctx.fillRect(65, -20, 25, 20); // Tangan Bawah
-    } else {
-        ctx.fillRect(-85, -40, 25, 20); // Tangan Atas
-        ctx.fillRect(-90, -20, 25, 20); // Tangan Bawah
-    }
+    ctx.fillStyle = handColor;
+    if (isPlayer) { ctx.beginPath(); ctx.roundRect(60, -40, 25, 20, 6); ctx.fill(); ctx.beginPath(); ctx.roundRect(65, -20, 25, 20, 6); ctx.fill(); }
+    else { ctx.beginPath(); ctx.roundRect(-85, -40, 25, 20, 6); ctx.fill(); ctx.beginPath(); ctx.roundRect(-90, -20, 25, 20, 6); ctx.fill(); }
 
     ctx.restore();
 }
 
-// ---------- RENDER UTAMA ----------
+function drawParticles() {
+    for (const p of particles) {
+        ctx.save(); ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
+        if (p.type === 'sparkle') {
+            ctx.translate(p.x, p.y); ctx.beginPath();
+            for (let i = 0; i < 4; i++) { ctx.rotate(Math.PI / 2); ctx.rect(-p.size / 2, -p.size * 2, p.size, p.size * 4); }
+            ctx.fill();
+        } else {
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+}
+
 function render() {
     if (state.phase === 'menu') { drawMenu(); return; }
+    if (state.phase === 'modeSelect') { drawModeSelect(); return; }
 
     drawBackground();
     drawArena();
@@ -417,375 +658,399 @@ function render() {
     const pX = CONFIG.basePlayerX + state.tugX;
     const aX = CONFIG.baseAiX + state.tugX;
 
-    drawRope(pX, aX);
+    // GAMBAR BAYANGAN KARAKTER DULU
+    drawCharacterShadow(pX, true);
+    drawCharacterShadow(aX, false);
 
-    // Menggunakan Y posisi berdiri karakter (385)
+    drawRope(pX, aX);
     drawCharacter(pX, CONFIG.groundY - 15, true, pAnim);
     drawCharacter(aX, CONFIG.groundY - 15, false, aiAnim);
 
+    drawParticles();
     drawTimers();
-    drawQuestion();
+    drawQuestionAndOptions();
     drawFeedback();
     drawGameOver();
 }
 
+// ============================================================
+// GARIS PEMBATAS BARU (SINKRON)
+// ============================================================
 function drawArena() {
     const centerX = W / 2;
 
-    ctx.fillStyle = 'rgba(255, 107, 53, 0.05)';
-    ctx.fillRect(0, CONFIG.groundY - 100, centerX, H - CONFIG.groundY + 100);
+    // 1. Zona Wilayah (Warna Transparan di Tanah)
+    ctx.fillStyle = 'rgba(255, 107, 53, 0.15)';
+    ctx.fillRect(0, CONFIG.groundY, centerX, H - CONFIG.groundY);
+    ctx.fillStyle = 'rgba(149, 117, 205, 0.15)';
+    ctx.fillRect(centerX, CONFIG.groundY, centerX, H - CONFIG.groundY);
 
-    ctx.fillStyle = 'rgba(149, 117, 205, 0.05)';
-    ctx.fillRect(centerX, CONFIG.groundY - 100, centerX, H - CONFIG.groundY + 100);
+    // 2. Garis Tanah (Cat Tebal)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.fillRect(centerX - 8, CONFIG.groundY, 16, H - CONFIG.groundY); // Bayangan
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fillRect(centerX - 5, CONFIG.groundY, 10, H - CONFIG.groundY); // Garis Putih
 
-    ctx.beginPath();
-    ctx.setLineDash([15, 15]);
-    ctx.moveTo(centerX, CONFIG.groundY - 120);
-    ctx.lineTo(centerX, CONFIG.groundY + 50);
-    ctx.strokeStyle = '#2c3e50';
-    ctx.lineWidth = 5;
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // 3. Tiang Penyangga
+    const postTop = CONFIG.groundY - 180;
 
-    ctx.fillStyle = '#e74c3c';
-    ctx.fillRect(centerX - 5, CONFIG.groundY - 150, 10, 60);
-    ctx.fillStyle = '#f1c40f';
-    ctx.beginPath();
-    ctx.moveTo(centerX + 5, CONFIG.groundY - 150);
-    ctx.lineTo(centerX + 40, CONFIG.groundY - 135);
-    ctx.lineTo(centerX + 5, CONFIG.groundY - 120);
-    ctx.fill();
-}
-
-function drawMenu() {
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#a8e6ff');
-    sky.addColorStop(1, '#e8f7ff');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
-    drawCloud(150, 100, 1);
-    drawCloud(780, 140, 0.8);
-    drawCloud(450, 60, 0.7);
-
-    ctx.fillStyle = '#2c3e50';
-    ctx.font = '700 64px Fredoka, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Math Tug of War', W / 2, 140);
-
-    ctx.font = '500 22px Fredoka, sans-serif';
-    ctx.fillStyle = 'rgba(44, 62, 80, 0.7)';
-    ctx.fillText('Pilih tingkat kesulitan', W / 2, 220);
-
-    for (const r of getMenuRects()) {
-        const isHover = state.hoverMenu === r.key;
-        const isSelected = state.difficulty === r.key;
-        const oy = isHover ? -3 : 0;
-
-        ctx.fillStyle = 'rgba(0,0,0,0.15)';
-        roundRect(r.x + 4, r.y + 6, r.w, r.h, 16); ctx.fill();
-        ctx.fillStyle = isSelected ? '#667eea' : (isHover ? '#e8eeff' : '#ffffff');
-        roundRect(r.x, r.y + oy, r.w, r.h, 16); ctx.fill();
-        ctx.strokeStyle = '#667eea'; ctx.lineWidth = 3;
-        roundRect(r.x, r.y + oy, r.w, r.h, 16); ctx.stroke();
-        ctx.fillStyle = isSelected ? '#ffffff' : '#2c3e50';
-        ctx.font = '600 26px Fredoka, sans-serif';
-        ctx.fillText(DIFFICULTIES[r.key].label, r.x + r.w / 2, r.y + r.h / 2 + oy);
-    }
-
-    const s = getStartRect();
-    const sHover = state.hoverMenu === 'start';
-    const sy = s.y + (sHover ? -3 : 0);
+    // BAYANGAN TIANG (Matematika sama persis dengan karakter: x' = x + 1.2y, y' = -0.4y)
+    // Jika ujung tiang y = -180, maka x' = 1.2*(-180) = -216, y' = -0.4*(-180) = 72
+    const shadowOffsetX = -216;
+    const shadowOffsetY = 72;
 
     ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    roundRect(s.x + 4, s.y + 6, s.w, s.h, 20); ctx.fill();
-    ctx.fillStyle = sHover ? '#5cdb95' : '#27ae60';
-    roundRect(s.x, sy, s.w, s.h, 20); ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 32px Fredoka, sans-serif';
-    ctx.fillText('START ▶', s.x + s.w / 2, sy + s.h / 2);
+    ctx.beginPath();
+    ctx.moveTo(centerX - 8, CONFIG.groundY);
+    ctx.lineTo(centerX - 8 + shadowOffsetX, CONFIG.groundY + shadowOffsetY);
+    ctx.lineTo(centerX + 8 + shadowOffsetX, CONFIG.groundY + shadowOffsetY);
+    ctx.lineTo(centerX + 8, CONFIG.groundY);
+    ctx.closePath();
+    ctx.fill();
 
-    ctx.fillStyle = 'rgba(44, 62, 80, 0.6)';
-    ctx.font = '500 16px Fredoka, sans-serif';
-    ctx.fillText('Jawab pakai klik atau tombol 1-4', W / 2, H - 30);
+    // Badan Tiang
+    ctx.fillStyle = '#5d4037';
+    ctx.fillRect(centerX - 8, postTop, 16, 180);
+
+    // Aksen Tiang
+    ctx.fillStyle = '#8d6e63';
+    ctx.fillRect(centerX - 4, postTop, 8, 180);
+
+    // 4. Pita Penanda
+    ctx.fillStyle = '#e74c3c'; ctx.fillRect(centerX - 10, postTop + 30, 20, 15);
+    ctx.fillStyle = '#ecf0f1'; ctx.fillRect(centerX - 10, postTop + 45, 20, 15);
+    ctx.fillStyle = '#e74c3c'; ctx.fillRect(centerX - 10, postTop + 60, 20, 15);
+
+    // 5. Efek Cahaya
+    const glowGrad = ctx.createLinearGradient(centerX, postTop, centerX, CONFIG.groundY);
+    glowGrad.addColorStop(0, 'rgba(241, 196, 15, 0)');
+    glowGrad.addColorStop(0.5, 'rgba(241, 196, 15, 0.15)');
+    glowGrad.addColorStop(1, 'rgba(241, 196, 15, 0.4)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 2, postTop);
+    ctx.lineTo(centerX + 2, postTop);
+    ctx.lineTo(centerX + 15, CONFIG.groundY);
+    ctx.lineTo(centerX - 15, CONFIG.groundY);
+    ctx.fill();
+
+    // 6. Bola Cahaya
+    ctx.save();
+    ctx.shadowColor = '#f1c40f';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = '#fff9c4';
+    ctx.beginPath(); ctx.arc(centerX, postTop, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // 7. Bendera
+    ctx.fillStyle = '#f1c40f';
+    ctx.beginPath();
+    ctx.moveTo(centerX + 8, postTop);
+    ctx.quadraticCurveTo(centerX + 40, postTop - 15, centerX + 65, postTop + 5);
+    ctx.quadraticCurveTo(centerX + 40, postTop + 25, centerX + 8, postTop + 25);
+    ctx.fill();
 }
 
 function drawBackground() {
     const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#a8e6ff');
-    sky.addColorStop(1, '#e8f7ff');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
-    drawCloud(150, 100, 1);
-    drawCloud(780, 140, 0.8);
-    ctx.fillStyle = '#b8e986';
-    ctx.beginPath();
-    ctx.moveTo(0, CONFIG.groundY);
-    ctx.quadraticCurveTo(W / 2, CONFIG.groundY - 20, W, CONFIG.groundY);
-    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    sky.addColorStop(0, '#6bc5ea'); sky.addColorStop(0.6, '#bce6f9'); sky.addColorStop(1, '#e0f4ff');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+    const sunX = W - 150, sunY = 100;
+    const sunGlow = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 200);
+    sunGlow.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    sunGlow.addColorStop(0.3, 'rgba(255, 255, 255, 0.6)');
+    sunGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = sunGlow; ctx.beginPath(); ctx.arc(sunX, sunY, 200, 0, Math.PI * 2); ctx.fill();
+
+    drawSkyEffects();
+
+    ctx.fillStyle = '#82b1b8'; ctx.beginPath(); ctx.moveTo(0, CONFIG.groundY); ctx.lineTo(150, 280); ctx.lineTo(350, CONFIG.groundY); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(250, CONFIG.groundY); ctx.lineTo(500, 240); ctx.lineTo(700, CONFIG.groundY); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(600, CONFIG.groundY); ctx.lineTo(850, 290); ctx.lineTo(960, CONFIG.groundY); ctx.fill();
+
+    ctx.fillStyle = '#6b9e78'; ctx.beginPath(); ctx.moveTo(0, CONFIG.groundY); ctx.quadraticCurveTo(W * 0.2, CONFIG.groundY - 60, W * 0.5, CONFIG.groundY - 20); ctx.quadraticCurveTo(W * 0.8, CONFIG.groundY + 20, W, CONFIG.groundY - 40); ctx.lineTo(W, CONFIG.groundY); ctx.fill();
+
+    drawTree(100, CONFIG.groundY - 20, 1); drawTree(130, CONFIG.groundY - 15, 0.8); drawTree(850, CONFIG.groundY - 30, 1.2); drawTree(880, CONFIG.groundY - 20, 0.9);
+
+    const groundGrad = ctx.createLinearGradient(0, CONFIG.groundY, 0, H); groundGrad.addColorStop(0, '#7cb342'); groundGrad.addColorStop(1, '#33691e');
+    ctx.fillStyle = groundGrad; ctx.beginPath(); ctx.moveTo(0, CONFIG.groundY); ctx.quadraticCurveTo(W / 2, CONFIG.groundY - 10, W, CONFIG.groundY); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+
+    ctx.fillStyle = 'rgba(0,0,0,0.1)'; for (let i = 0; i < 10; i++) { const gx = (i * 110 + 50) % W; ctx.beginPath(); ctx.moveTo(gx, CONFIG.groundY); ctx.lineTo(gx + 10, CONFIG.groundY - 15); ctx.lineTo(gx + 20, CONFIG.groundY); ctx.fill(); }
 }
 
-function drawCloud(x, y, s) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.beginPath();
-    ctx.arc(x, y, 30 * s, 0, Math.PI * 2);
-    ctx.arc(x + 35 * s, y - 10 * s, 40 * s, 0, Math.PI * 2);
-    ctx.arc(x + 75 * s, y, 30 * s, 0, Math.PI * 2);
-    ctx.fill();
+function drawTree(x, y, scale) {
+    ctx.fillStyle = '#2e5c3e'; ctx.beginPath(); ctx.moveTo(x, y - 80 * scale); ctx.lineTo(x - 30 * scale, y); ctx.lineTo(x + 30 * scale, y); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x, y - 50 * scale); ctx.lineTo(x - 40 * scale, y + 20 * scale); ctx.lineTo(x + 40 * scale, y + 20 * scale); ctx.fill();
+    ctx.fillStyle = '#4e342e'; ctx.fillRect(x - 5 * scale, y + 20 * scale, 10 * scale, 20 * scale);
+}
+
+function drawMenu() {
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#6bc5ea'); sky.addColorStop(0.6, '#bce6f9'); sky.addColorStop(1, '#e0f4ff');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+    drawSkyEffects();
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    roundRect(W / 2 - 350, 80, 700, 400, 30); ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'; ctx.lineWidth = 4;
+    roundRect(W / 2 - 350, 80, 700, 400, 30); ctx.stroke();
+
+    ctx.fillStyle = '#2c3e50'; ctx.font = '700 72px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(255,255,255,0.8)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 5;
+    ctx.fillText('Math Tug of War', W / 2, 150);
+    ctx.shadowColor = 'transparent';
+
+    ctx.font = '500 24px Fredoka, sans-serif'; ctx.fillStyle = '#34495e';
+    ctx.fillText('Pilih tingkat kesulitan', W / 2, 230);
+
+    for (const r of getMenuRects()) {
+        const isHover = state.hoverMenu === r.key;
+        const isSelected = state.difficulty === r.key;
+        const scale = isHover ? 1.05 : 1.0;
+
+        ctx.save(); ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.scale(scale, scale); ctx.translate(-(r.x + r.w / 2), -(r.y + r.h / 2));
+
+        ctx.fillStyle = 'rgba(0,0,0,0.1)'; roundRect(r.x + 4, r.y + 6, r.w, r.h, 16); ctx.fill();
+
+        const btnGrad = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+        if (isSelected) { btnGrad.addColorStop(0, '#5cdb95'); btnGrad.addColorStop(1, '#27ae60'); }
+        else { btnGrad.addColorStop(0, isHover ? '#ffffff' : '#f0f4c3'); btnGrad.addColorStop(1, isHover ? '#e0e0e0' : '#dce775'); }
+
+        ctx.fillStyle = btnGrad; roundRect(r.x, r.y, r.w, r.h, 16); ctx.fill();
+        ctx.strokeStyle = isSelected ? '#1e8449' : '#aed581'; ctx.lineWidth = 3; roundRect(r.x, r.y, r.w, r.h, 16); ctx.stroke();
+
+        ctx.fillStyle = isSelected ? '#ffffff' : '#2c3e50'; ctx.font = '600 26px Fredoka, sans-serif';
+        ctx.fillText(DIFFICULTIES[r.key].label, r.x + r.w / 2, r.y + r.h / 2);
+        ctx.restore();
+    }
+
+    const s = getStartRect();
+    const sHover = state.hoverMenu === 'start';
+    const pulse = Math.sin(state.time * 5) * 0.03 + 1;
+    const hoverScale = sHover ? 1.08 : 1.0;
+    const finalScale = pulse * hoverScale;
+
+    ctx.save(); ctx.translate(s.x + s.w / 2, s.y + s.h / 2); ctx.scale(finalScale, finalScale); ctx.translate(-(s.x + s.w / 2), -(s.y + s.h / 2));
+
+    if (sHover) { ctx.shadowColor = '#2ecc71'; ctx.shadowBlur = 25; }
+    ctx.fillStyle = 'rgba(0,0,0,0.1)'; roundRect(s.x + 4, s.y + 8, s.w, s.h, 20); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    const startGrad = ctx.createLinearGradient(s.x, s.y, s.x, s.y + s.h);
+    if (sHover) { startGrad.addColorStop(0, '#2ecc71'); startGrad.addColorStop(1, '#27ae60'); }
+    else { startGrad.addColorStop(0, '#1abc9c'); startGrad.addColorStop(1, '#16a085'); }
+
+    ctx.fillStyle = startGrad; roundRect(s.x, s.y, s.w, s.h, 20); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.2)'; roundRect(s.x + 5, s.y + 5, s.w - 10, 15, 10); ctx.fill();
+
+    ctx.fillStyle = '#ffffff'; ctx.font = '700 34px Fredoka, sans-serif'; ctx.fillText('MASUK ▶', s.x + s.w / 2, s.y + s.h / 2);
+    ctx.restore();
+}
+
+function drawModeSelect() {
+    drawBackground();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'; ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = '#2c3e50'; ctx.font = '700 56px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(255,255,255,0.8)'; ctx.shadowBlur = 10;
+    ctx.fillText('Pilih Mode Permainan', W / 2, 140);
+    ctx.shadowColor = 'transparent';
+
+    for (const r of getModeRects()) {
+        const isHover = state.hoverMenu === r.key;
+        const scale = isHover ? 1.06 : 1.0;
+
+        ctx.save(); ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.scale(scale, scale); ctx.translate(-(r.x + r.w / 2), -(r.y + r.h / 2));
+
+        ctx.fillStyle = 'rgba(0,0,0,0.1)'; roundRect(r.x + 4, r.y + 8, r.w, r.h, 20); ctx.fill();
+
+        const btnGrad = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+        if (r.key === 'mcq') {
+            btnGrad.addColorStop(0, isHover ? '#ff9a76' : '#ffffff'); btnGrad.addColorStop(1, isHover ? '#e65100' : '#f5f5f5');
+        } else {
+            btnGrad.addColorStop(0, isHover ? '#b39ddb' : '#ffffff'); btnGrad.addColorStop(1, isHover ? '#673ab7' : '#f5f5f5');
+        }
+
+        ctx.fillStyle = btnGrad; roundRect(r.x, r.y, r.w, r.h, 20); ctx.fill();
+        ctx.strokeStyle = r.key === 'mcq' ? '#ff6b35' : '#9575cd'; ctx.lineWidth = 5; roundRect(r.x, r.y, r.w, r.h, 20); ctx.stroke();
+
+        if (isHover) {
+            ctx.shadowColor = r.key === 'mcq' ? '#ff6b35' : '#9575cd'; ctx.shadowBlur = 15; roundRect(r.x, r.y, r.w, r.h, 20); ctx.stroke(); ctx.shadowBlur = 0;
+        }
+
+        ctx.fillStyle = isHover ? '#ffffff' : (r.key === 'mcq' ? '#ff6b35' : '#9575cd'); ctx.font = '700 32px Fredoka, sans-serif';
+        ctx.fillText(r.key === 'mcq' ? 'Pilihan Ganda' : 'Isi Kolom', r.x + r.w / 2, r.y + r.h / 2 - 10);
+
+        ctx.fillStyle = isHover ? 'rgba(255,255,255,0.9)' : '#7f8c8d'; ctx.font = '500 18px Fredoka, sans-serif';
+        ctx.fillText(r.key === 'mcq' ? '(Hitungan Dasar)' : '(KaBaTaKu / Campuran)', r.x + r.w / 2, r.y + r.h / 2 + 25);
+        ctx.restore();
+    }
 }
 
 function drawRope(pX, aX) {
-    // Dapatkan posisi presisi telapak tangan
     const pHand = getHandPos(pX, CONFIG.groundY - 15, true, pAnim);
     const aHand = getHandPos(aX, CONFIG.groundY - 15, false, aiAnim);
 
-    // 1. Ekor Tali di Belakang Player (Miring ke bawah)
-    ctx.strokeStyle = '#b4835b'; ctx.lineWidth = 8; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(pHand.x - 40, pHand.y + 25); // Ujung bawah
-    ctx.lineTo(pHand.x, pHand.y);
-    ctx.stroke();
+    ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(pHand.x - 40, pHand.y + 25); ctx.lineTo(pHand.x, pHand.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(aHand.x + 40, aHand.y + 25); ctx.lineTo(aHand.x, aHand.y); ctx.stroke();
 
-    // 2. Ekor Tali di Belakang AI (Miring ke bawah)
-    ctx.beginPath();
-    ctx.moveTo(aHand.x + 40, aHand.y + 25); // Ujung bawah
-    ctx.lineTo(aHand.x, aHand.y);
-    ctx.stroke();
+    const knotX = (pHand.x + aHand.x) / 2; const knotY = Math.max(pHand.y, aHand.y) + 30;
 
-    // 3. Tali Utama (Melengkung turun ke tengah)
-    const knotX = (pHand.x + aHand.x) / 2;
-    const knotY = Math.max(pHand.y, aHand.y) + 30; // Melengkung ke bawah
+    ctx.beginPath(); ctx.moveTo(pHand.x, pHand.y); ctx.quadraticCurveTo(knotX, knotY, aHand.x, aHand.y); ctx.stroke();
 
-    ctx.beginPath();
-    ctx.moveTo(pHand.x, pHand.y);
-    ctx.quadraticCurveTo(knotX, knotY, aHand.x, aHand.y);
-    ctx.stroke();
-
-    // 4. Highlight Tali
     ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(pHand.x, pHand.y - 2);
-    ctx.quadraticCurveTo(knotX, knotY - 2, aHand.x, aHand.y - 2);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pHand.x, pHand.y - 2); ctx.quadraticCurveTo(knotX, knotY - 2, aHand.x, aHand.y - 2); ctx.stroke();
 
-    // 5. Simpul Pita
-    ctx.fillStyle = '#e74c3c';
-    ctx.beginPath(); ctx.arc(knotX, knotY, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(knotX, knotY, 12, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 3; ctx.stroke();
 }
 
 function drawTimers() {
     if (state.phase !== 'playing' || !state.question) return;
     const barY = 260, barW = 80, barH = 8;
+    const pX = CONFIG.basePlayerX + state.tugX; const aX = CONFIG.baseAiX + state.tugX;
 
-    const pX = CONFIG.basePlayerX + state.tugX;
-    const aX = CONFIG.baseAiX + state.tugX;
-
-    const pp = Math.max(0, state.roundTimer / state.roundInitialTimer);
-    const pbx = pX - barW / 2;
+    const pp = Math.max(0, state.roundTimer / state.roundInitialTimer); const pbx = pX - barW / 2;
     ctx.fillStyle = 'rgba(0,0,0,0.2)'; roundRect(pbx, barY, barW, barH, 4); ctx.fill();
-    ctx.fillStyle = pp > 0.5 ? '#27ae60' : pp > 0.25 ? '#f39c12' : '#e74c3c';
-    roundRect(pbx, barY, barW * pp, barH, 4); ctx.fill();
+    ctx.fillStyle = pp > 0.5 ? '#27ae60' : pp > 0.25 ? '#f39c12' : '#e74c3c'; roundRect(pbx, barY, barW * pp, barH, 4); ctx.fill();
 
-    ctx.fillStyle = '#2c3e50';
-    ctx.font = '600 13px Fredoka, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText('Waktu kamu', pX, barY - 8);
+    ctx.fillStyle = '#2c3e50'; ctx.font = '600 13px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText('Waktu kamu', pX, barY - 8);
 
     if (!state.aiAnswered) {
-        const ap = Math.max(0, 1 - state.aiTimer / state.aiInitialTimer);
-        const abx = aX - barW / 2;
+        const ap = Math.max(0, 1 - state.aiTimer / state.aiInitialTimer); const abx = aX - barW / 2;
         ctx.fillStyle = 'rgba(0,0,0,0.2)'; roundRect(abx, barY, barW, barH, 4); ctx.fill();
-        ctx.fillStyle = ap > 0.75 ? '#e74c3c' : '#9575cd';
-        roundRect(abx, barY, barW * ap, barH, 4); ctx.fill();
-
-        ctx.fillStyle = '#2c3e50';
-        ctx.fillText('AI berpikir...', aX, barY - 8);
+        ctx.fillStyle = ap > 0.75 ? '#e74c3c' : '#9575cd'; roundRect(abx, barY, barW * ap, barH, 4); ctx.fill();
+        ctx.fillStyle = '#2c3e50'; ctx.fillText('AI berpikir...', aX, barY - 8);
     }
 }
 
-function getOptionRects() {
-    const bw = 220, bh = 55, gap = 15;
-    const totalW = bw * 2 + gap;
-    const sx = (W - totalW) / 2;
-    const sy = 110;
-    return [
-        { x: sx, y: sy, w: bw, h: bh },
-        { x: sx + bw + gap, y: sy, w: bw, h: bh },
-        { x: sx, y: sy + bh + gap, w: bw, h: bh },
-        { x: sx + bw + gap, y: sy + bh + gap, w: bw, h: bh },
-    ];
-}
-
-function drawQuestion() {
+function drawQuestionAndOptions() {
     if (!state.question || state.phase === 'gameover') return;
+    const qx = W / 2 - 220, qy = 20, qw = 440, qh = 80;
 
-    const qx = W / 2 - 180, qy = 25, qw = 360, qh = 60;
+    ctx.fillStyle = 'rgba(0,0,0,0.1)'; roundRect(qx + 4, qy + 4, qw, qh, 20); ctx.fill();
+    ctx.fillStyle = '#ffffff'; roundRect(qx, qy, qw, qh, 20); ctx.fill();
+    ctx.strokeStyle = '#667eea'; ctx.lineWidth = 4; roundRect(qx, qy, qw, qh, 20); ctx.stroke();
 
-    ctx.fillStyle = 'rgba(0,0,0,0.15)'; roundRect(qx + 4, qy + 4, qw, qh, 18); ctx.fill();
-    ctx.fillStyle = '#ffffff'; roundRect(qx, qy, qw, qh, 18); ctx.fill();
-    ctx.strokeStyle = '#667eea'; ctx.lineWidth = 3; roundRect(qx, qy, qw, qh, 18); ctx.stroke();
+    ctx.fillStyle = '#2c3e50'; ctx.font = '700 46px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(state.question.text, W / 2, qy + qh / 2); ctx.textBaseline = 'alphabetic';
 
-    ctx.fillStyle = '#2c3e50';
-    ctx.font = '700 36px Fredoka, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(state.question.text, W / 2, qy + qh / 2);
-    ctx.textBaseline = 'alphabetic';
+    if (state.gameMode === 'mcq') {
+        const rects = getOptionRects();
+        for (let i = 0; i < rects.length; i++) {
+            const r = rects[i]; const opt = state.question.options[i];
 
-    const rects = getOptionRects();
-    for (let i = 0; i < rects.length; i++) {
-        const r = rects[i];
-        const opt = state.question.options[i];
+            ctx.fillStyle = 'rgba(0,0,0,0.1)'; roundRect(r.x + 3, r.y + 3, r.w, r.h, 14); ctx.fill();
+            ctx.fillStyle = '#ffffff'; roundRect(r.x, r.y, r.w, r.h, 14); ctx.fill();
+            ctx.strokeStyle = '#667eea'; ctx.lineWidth = 3; roundRect(r.x, r.y, r.w, r.h, 14); ctx.stroke();
 
-        ctx.fillStyle = 'rgba(0,0,0,0.12)'; roundRect(r.x + 3, r.y + 3, r.w, r.h, 14); ctx.fill();
-        ctx.fillStyle = '#ffffff'; roundRect(r.x, r.y, r.w, r.h, 14); ctx.fill();
-        ctx.strokeStyle = '#667eea'; ctx.lineWidth = 3; roundRect(r.x, r.y, r.w, r.h, 14); ctx.stroke();
+            ctx.fillStyle = '#667eea'; roundRect(r.x + 10, r.y + 10, 36, r.h - 20, 8); ctx.fill();
 
-        ctx.fillStyle = '#667eea'; roundRect(r.x + 10, r.y + 10, 36, r.h - 20, 8); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.font = '700 20px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(String(i + 1), r.x + 28, r.y + r.h / 2);
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '700 20px Fredoka, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(i + 1), r.x + 28, r.y + r.h / 2);
+            ctx.fillStyle = '#2c3e50'; ctx.font = '700 26px Fredoka, sans-serif'; ctx.fillText(String(opt), r.x + r.w / 2 + 20, r.y + r.h / 2);
 
-        ctx.fillStyle = '#2c3e50';
-        ctx.font = '700 26px Fredoka, sans-serif';
-        ctx.fillText(String(opt), r.x + r.w / 2 + 20, r.y + r.h / 2);
-
-        if (state.aiChosenIndex === i) {
-            ctx.fillStyle = '#9575cd';
-            ctx.beginPath();
-            ctx.arc(r.x + r.w - 18, r.y + 18, 14, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 11px Fredoka, sans-serif';
-            ctx.fillText('AI', r.x + r.w - 18, r.y + 18);
+            if (state.aiChosenIndex === i) {
+                ctx.fillStyle = '#9575cd'; ctx.beginPath(); ctx.arc(r.x + r.w - 18, r.y + 18, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px Fredoka, sans-serif'; ctx.fillText('AI', r.x + r.w - 18, r.y + 18);
+            }
         }
+        ctx.textBaseline = 'alphabetic';
     }
-    ctx.textBaseline = 'alphabetic';
 }
 
 function drawFeedback() {
     if (!state.feedback) return;
     const alpha = Math.min(1, state.feedback.timer * 2);
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.font = '700 68px Fredoka, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 10;
-    ctx.strokeText(state.feedback.text, W / 2, H / 2);
-    ctx.fillStyle = state.feedback.color;
-    ctx.fillText(state.feedback.text, W / 2, H / 2);
-    ctx.restore();
+    ctx.save(); ctx.globalAlpha = alpha; ctx.font = '700 68px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 10; ctx.strokeText(state.feedback.text, W / 2, H / 2 + 50);
+    ctx.fillStyle = state.feedback.color; ctx.fillText(state.feedback.text, W / 2, H / 2 + 50); ctx.restore();
 }
 
 function drawGameOver() {
     if (state.phase !== 'gameover') return;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(0, 0, W, H);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 56px Fredoka, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(
-        state.winner === 'player' ? 'KAMU MENANG! 🎉' : 'AI MENANG 😢',
-        W / 2, H / 2 - 20
-    );
-
-    ctx.font = '500 22px Fredoka, sans-serif';
-    ctx.fillText('R = main lagi  •  M = menu', W / 2, H / 2 + 60);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ffffff'; ctx.font = '700 56px Fredoka, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(state.winner === 'player' ? 'KAMU MENANG! 🎉' : 'AI MENANG 😢', W / 2, H / 2 - 20);
+    ctx.font = '500 22px Fredoka, sans-serif'; ctx.fillText('R = main lagi  •  M = menu', W / 2, H / 2 + 60);
 }
 
 function roundRect(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 
 function startGame() {
-    SFX.click();
-    state.tugX = 0;
-    state.winner = null;
-    state.feedback = null;
-    pAnim.state = 'idle'; pAnim.timer = 0;
-    aiAnim.state = 'idle'; aiAnim.timer = 0;
+    SFX.click(); state.tugX = 0; state.winner = null; state.feedback = null; particles.length = 0;
+    pAnim.state = 'idle'; pAnim.timer = 0; aiAnim.state = 'idle'; aiAnim.timer = 0;
+    pInput.style.display = 'none'; aiInput.style.display = 'none';
     nextQuestion();
 }
 
-// ---------- INPUT: KEYBOARD ----------
 document.addEventListener('keydown', (e) => {
+    if (e.target === pInput) return;
     if (state.phase === 'menu') return;
-    if (state.phase === 'gameover') {
-        if (e.code === 'KeyR') { startGame(); return; }
-        if (e.code === 'KeyM' || e.code === 'Escape') { state.phase = 'menu'; return; }
+    if (state.phase === 'modeSelect') {
+        if (e.code === 'Escape' || e.code === 'KeyM') { state.phase = 'menu'; return; }
         return;
     }
-    if (e.code === 'KeyR') { startGame(); return; }
-    if (e.code === 'KeyM' || e.code === 'Escape') { state.phase = 'menu'; return; }
-    if (state.phase !== 'playing') return;
+    if (state.phase === 'gameover') {
+        if (e.code === 'KeyR') { state.phase = 'modeSelect'; return; }
+        if (e.code === 'KeyM' || e.code === 'Escape') { state.phase = 'menu'; pInput.style.display = 'none'; aiInput.style.display = 'none'; return; }
+        return;
+    }
+    if (e.code === 'KeyR') { state.phase = 'modeSelect'; pInput.style.display = 'none'; aiInput.style.display = 'none'; return; }
+    if (e.code === 'KeyM' || e.code === 'Escape') { state.phase = 'menu'; pInput.style.display = 'none'; aiInput.style.display = 'none'; return; }
 
-    if (e.code === 'Digit1' || e.code === 'Numpad1') playerAnswer(0);
-    if (e.code === 'Digit2' || e.code === 'Numpad2') playerAnswer(1);
-    if (e.code === 'Digit3' || e.code === 'Numpad3') playerAnswer(2);
-    if (e.code === 'Digit4' || e.code === 'Numpad4') playerAnswer(3);
+    if (state.phase === 'playing' && state.gameMode === 'mcq') {
+        let chosenIdx = -1;
+        if (e.code === 'Digit1' || e.code === 'Numpad1' || e.code === 'KeyA') chosenIdx = 0;
+        if (e.code === 'Digit2' || e.code === 'Numpad2' || e.code === 'KeyB') chosenIdx = 1;
+        if (e.code === 'Digit3' || e.code === 'Numpad3' || e.code === 'KeyC') chosenIdx = 2;
+        if (e.code === 'Digit4' || e.code === 'Numpad4' || e.code === 'KeyD') chosenIdx = 3;
+        if (chosenIdx !== -1) evaluatePlayerAnswer(state.question.options[chosenIdx]);
+    }
 });
 
-// ---------- INPUT: MOUSE ----------
 function getMousePos(e) {
     const rect = canvas.getBoundingClientRect();
-    return {
-        x: (e.clientX - rect.left) * (canvas.width / rect.width),
-        y: (e.clientY - rect.top) * (canvas.height / rect.height),
-    };
+    return { x: (e.clientX - rect.left) * (canvas.width / rect.width), y: (e.clientY - rect.top) * (canvas.height / rect.height) };
 }
 
 canvas.addEventListener('click', (e) => {
     const { x, y } = getMousePos(e);
     if (state.phase === 'menu') {
-        for (const r of getMenuRects()) {
-            if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
-                state.difficulty = r.key; SFX.click(); return;
-            }
-        }
+        for (const r of getMenuRects()) { if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { state.difficulty = r.key; SFX.click(); return; } }
         const s = getStartRect();
-        if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) startGame();
+        if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) { SFX.click(); state.phase = 'modeSelect'; return; }
         return;
     }
-    if (state.phase !== 'playing' || !state.question) return;
-    const rects = getOptionRects();
-    for (let i = 0; i < rects.length; i++) {
-        const r = rects[i];
-        if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
-            playerAnswer(i); return;
+    if (state.phase === 'modeSelect') {
+        for (const r of getModeRects()) { if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { state.gameMode = r.key; startGame(); return; } }
+        return;
+    }
+    if (state.phase === 'playing' && state.gameMode === 'mcq') {
+        const rects = getOptionRects();
+        for (let i = 0; i < rects.length; i++) {
+            const r = rects[i]; if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { evaluatePlayerAnswer(state.question.options[i]); return; }
         }
     }
 });
 
 canvas.addEventListener('mousemove', (e) => {
-    if (state.phase !== 'menu') { canvas.style.cursor = 'default'; return; }
-    const { x, y } = getMousePos(e);
-    state.hoverMenu = null;
-    for (const r of getMenuRects()) {
-        if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
-            state.hoverMenu = r.key; canvas.style.cursor = 'pointer'; return;
-        }
-    }
-    const s = getStartRect();
-    if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) {
-        state.hoverMenu = 'start'; canvas.style.cursor = 'pointer'; return;
+    if (state.phase !== 'menu' && state.phase !== 'modeSelect') { canvas.style.cursor = 'default'; return; }
+    const { x, y } = getMousePos(e); state.hoverMenu = null;
+
+    if (state.phase === 'menu') {
+        for (const r of getMenuRects()) { if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { state.hoverMenu = r.key; canvas.style.cursor = 'pointer'; return; } }
+        const s = getStartRect(); if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) { state.hoverMenu = 'start'; canvas.style.cursor = 'pointer'; return; }
+    } else if (state.phase === 'modeSelect') {
+        for (const r of getModeRects()) { if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { state.hoverMenu = r.key; canvas.style.cursor = 'pointer'; return; } }
     }
     canvas.style.cursor = 'default';
 });
 
-// ---------- JALANKAN ----------
 requestAnimationFrame(loop);
